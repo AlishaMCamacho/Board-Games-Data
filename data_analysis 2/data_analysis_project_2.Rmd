@@ -1,0 +1,440 @@
+---
+title: "data_analysis_project"
+author: "Alisha Camacho, Steven Jacobs and Pablo Suarez"
+date: "2023-11-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## INTRODUCTION
+
+Welcome to the JOUR772 data analysis markdown file of Alisha Camacho, Steven Jacobs and Pablo Suarez. Below, we are analyzing a Kaggle data set containing data collected on board games from the BoardGameGeek (BGG) website in February 2021. BGG, the largest online collection of board game data, relies on its voluntary community to build its database by providing site contributions in the form of board game reviews, ratings, images, videos and live discussion forums, among others.
+
+This data set incorporates those user contributions and contains information on roughly 20,000 board games scraped from the BGG rankings as of the date of collection by the original data set creators. It does not feature any unranked games, as those games do not meet the 30 vote threshold needed to be eligible for rankings.
+
+Columns in this data set include a game's unique BGG ID, name, year published, minimum players required, maximum players allowed, average play time, minimum age required, number of users who rated the game, average rating, the BGG rank, complexity average, number of owned users, mechanics and domains.
+
+***Link to the data set: <https://www.kaggle.com/datasets/andrewmvd/board-games/>***
+
+## ***Project Milestone #1***
+
+We were asked to craft newsworthy questions that we'd like to attempt to answer about this data set. Our questions include:
+
+-   What is the relationship, if any, between average play-time and average rating?
+
+-   How are the games for 4 or 5+ players rated differently or more frequently than games intended for fewer players? Same for solo games.
+
+-   Measuring by year and decade, what are the top average board games, domains and mechanics?
+
+-   How does the complexity of board games vary based on the recommended minimum age?
+
+-   What are the highest-rated games that are the most owned and have the most users rated? How does this list compare to the BGG rankings?
+
+-   What are the 25 oldest games in our data set, how much did they cost on release and how much do they cost now? Did they increase in price, and if so, does that follow the inflation rate?
+
+## ***Project Milestone #2***
+
+In this section of the project, we were tasked with creating our markdown file and accomplishing the following tasks:
+
+-   Load and clean the core data set to prepare for analysis.
+
+-   Show basic exploratory analysis to demonstrate an understanding of the data set. Include the number of rows and columns, any obvious limitations or flaws and any reasons why it might not be able to answer the research questions.
+
+We began by loading our libraries and settings.
+
+```{r}
+
+# Turn off scientific notation
+options(scipen=999)
+
+# Load our libraries
+library(tidyverse)
+library(janitor)
+library(refinr)
+library(lubridate)
+library(dplyr)
+library(readr)
+
+```
+
+Next, we loaded in our core data set. Upon reading it in at first, we received this error message -- "Error in read.table(file = file, header = header, sep = sep, quote = quote, : more columns than column names". The error suggests that this CSV file is delimited by a character other than a comma. Our data set is separated instead by a semicolon, so we used the sep parameter when reading the file in to be able to view it properly.
+
+Once the data set was properly loaded, we used the clean_names function to make all of the column headings lowercase. Then we focused on converting our columns into the proper data types. For the rating average and complexity average columns, these were initially imported as character type columns. Given that we might want to do further calculations with these average ratings, we converted them to numeric type columns. To do that, we first had to replace the commas within those columns to decimal points. We then used the mutate function to call in the columns and convert them as we've been taught.
+
+We also converted the id and bgg_rank columns from an integer type to a character type as these are not numeric values we want to use in calculations, rather they are intended to serve as unique identifiers for the board games.
+
+Here is the code showing how we imported and cleaned our data:
+
+```{r}
+
+bgg_dataset <- read.csv("data/bgg_dataset.csv", sep = ";") |>
+   clean_names()
+
+bgg_dataset$rating_average <- gsub(",", ".", bgg_dataset$rating_average)
+bgg_dataset$complexity_average <- gsub(",", ".", bgg_dataset$complexity_average)
+
+bgg_dataset <- bgg_dataset |>
+  mutate(id = as.character(id),
+         bgg_rank = as.character(bgg_rank),
+         rating_average = as.numeric(rating_average), 
+         complexity_average = as.numeric(complexity_average))
+
+glimpse(bgg_dataset)
+```
+
+Explanatory Analysis of the Data Set:
+
+Number of Rows: 20,343
+
+Number of Columns: 14
+
+Obvious Limitations or Flaws:
+
+-   We believe we are going to encounter some issues with how the data within the mechanics column is nested. The amount of information in each individual entry in that column will make it difficult to group or sort. We anticipate that we'll need to frequently filter results from that column. The same could be said for the domains column, although that column doesn't nearly have as much data nested within each row.
+
+-   We wish that this data set included each game's price on release. This is outside data that we'd have to create a data frame for and merge it to our bgg_dataset (or a smaller data set) in order to answer our last question.
+
+## ***Project Milestone #3***
+
+For this milestone we were expected to complete the following tasks:
+
+- Show an attempt to answer questions created during Milestone #1
+
+We were also instructed by Ryan to limit our original questions and add two questions addressing the "mechanics" and "domains" columns.
+Our two new questions:
+- What are, by count, the most common mechanic among games in our data set? 
+
+- What are the most popular domain types by year?
+
+We then began working on some of our original questions: 
+
+## Q1: What is the relationship, if any, between average play-time and average rating?
+
+To identify whether there is a relationship between these two factors, we first grouped the data by the play_time column. Then we summarized to find the count of games within a certain play time value. We also summarized to find the average rating of games within these play time values. 
+
+The most common play time for games in our data set is 30 minutes with 3,638. These games have an average rating of 6.17 out of 10. This was followed by 60 minutes, which had 3,003 games and an average score of 6.43, as well as 45 minutes with 2,207 games and an average rating of 6.35. 
+
+```{r}
+
+bgg_dataset |>
+  group_by(play_time)|>
+  summarise(count = n(), average_rating = mean(rating_average, na.rm = TRUE)) |>
+  arrange(desc(count))
+
+```
+
+If we were to arrange this data in descending order by average rating, we would see smaller sample sizes of games with extremely long play times. The highest rated game by this arrangement method has a play time of 8,640 minutes and a rating of 9.12. However, the first play time window with a sample of over 500 games is 240 minutes with an average score of 6.96. The next play time with a high sample size is 180 minutes (805 games) and an average rating of 6.87. This was followed by 120 minutes (1,618 games) and 90 minutes (1,591 games) with 6.77 and 6.66 ratings, respectively.
+
+```{r}
+
+bgg_dataset |>
+  group_by(play_time)|>
+  summarise(count = n(), average_rating = mean(rating_average, na.rm = TRUE)) |>
+  arrange(desc(average_rating))
+
+```
+
+## Q2: How does the complexity of board games vary based on the recommended minimum age?
+
+```{r}
+# Assuming bgg_dataset is your dataset of board games
+# Calculate the average minimum age
+average_min_age <- mean(bgg_dataset$min_age, na.rm = TRUE)
+# Print the average minimum age
+print(average_min_age)
+```
+
+```{r} 
+# Assuming bgg_dataset is your dataset of board games
+# Calculate the average complexity score
+average_complexity <- mean(bgg_dataset$complexity_average, na.rm = TRUE)
+# Print the average complexity score
+print(average_complexity)
+```
+
+```{r}
+# Assuming bgg_dataset is your dataset of board games
+# Sort the dataset by min_age in descending order and select the top 1251 rows
+games_highest_min_age <- bgg_dataset[order(-bgg_dataset$min_age), c('name', 'min_age', 'complexity_average')][1:1251, ]
+# Display the list of games with the highest minimum age, sorted by min age requirement
+print(games_highest_min_age)
+```
+
+```{r}
+
+games_lowest_min_age <- bgg_dataset[order(bgg_dataset$min_age), c('name', 'min_age', 'complexity_average')][1:1251, ]
+
+```
+
+```{r}
+
+#Sort the dataset by min_age in ascending order and select the top 1251 rows
+games_lowest_min_age <- bgg_dataset[order(bgg_dataset$min_age), c('name', 'min_age', 'complexity_average')][1:1251, ]
+# Display the list of games with the lowest minimum age, sorted by min age requirement
+print(games_lowest_min_age)
+
+```
+
+Analysis... Out of the 20,343 board games, we first coded to discover the average minimum age requirement needed to play all of the board games. They ended up having a recommended minimum age requirement of approximately 9.6 years old. In relation to the complexity of the games, we then coded to find the average complexity score, which is around 1.99. After that, we coded to find the lowest minimum age requirement for the list of games in the data set, which was 0. We then filtered the 1,251 games with a 0 minimum age requirement to their corresponding complexity score to spot any notable trends. In relation, we felt like it was necessary to code for the top 1,251 games with the highest minimum age requirement and filtered them with their corresponding complexity score as well. When you consider how the complexity varies based on the recommended minimum age, we found that there is a noticeably higher complexity score for the games with a much lower minimum age requirement than the games with the highest age requirements in the data set of board games.
+
+
+##Q3: Measuring by year and decade, what are the top average board games?
+
+
+Upon looking at the years_published we calculated that there are approximately 84 games with missing unpublished years. We researched and added the year published for top rated games. From there, we categorized games by the following parameters to determine the highest and lowest ranking game per time-period:
+
+#pre year 0 
+
+#pre 1900
+- 1000 to 1499
+- 1500 to 1599
+- 1600 to 1699
+- 1700 to 1799
+- 1800 to 1899
+
+#after 1900
+we grouped by decade
+
+
+```{r}
+#arrange by the average rating
+
+bgg_ranking_year <- bgg_dataset |> 
+  select(year_published, name, rating_average, domains, mechanics) |> 
+  arrange(desc(rating_average))
+
+glimpse(bgg_ranking_year)
+
+bgg_ranking_year
+
+```
+
+Erune came in first place for the highest average rating; however, it did not include the year_published. According to boardgamegeek.com, it was released in 2021. https://boardgamegeek.com/boardgame/275777/erune/credits
+
+
+```{r}
+
+#making a new data frame with the year_published values
+
+bgg_ranking_year_missing <- tibble(
+  name = c("Erune"),
+  year_published = c(2021)
+) 
+
+bgg_ranking_year_missing <- bgg_ranking_year_missing |> 
+  mutate(year_published = as.integer(year_published))
+
+bgg_ranking_year_missing 
+
+
+```
+
+#top missing board game years to add in:
+- War Titans: Invaders Must Die! | 2019 | https://boardgamegeek.com/boardgameversion/323309/kickstarter
+
+- Tindaya | 2022 | https://boardgamegeek.com/boardgame/317511/tindaya/credits
+
+- Thug Lie the Game | 2019 | https://boardgamegeek.com/boardgame/211693/thug-life-game/credits
+
+- Ignite |  2021 | https://boardgamegeek.com/boardgame/260934/ignite/credits
+
+- Moonstone | 2019 | https://www.tabletopgamingnews.com/goblin-king-games-announces-march-release-date-for-moonstone/
+
+
+```{r}
+bgg_ranking_year |> 
+  arrange(year_published)
+
+bgg_ranking_year
+
+#there are 84 missing years_published 
+```
+
+```{r}
+#adding in the top missing years
+
+bgg_ranking_year_missing <- tibble(
+  name = c("Erune, Tindaya, Thug Lie the Game, Ignite, Moonstone"),
+  year_published = c(2021, 2022, 2019, 2021, 2019)
+) 
+
+bgg_ranking_year_missing <- bgg_ranking_year_missing |> 
+  mutate(year_published = as.integer(year_published))
+
+bgg_ranking_year_missing 
+
+```
+
+**Join the data frames**
+#data frame 1: bgg_ranking_year
+#data frame 2: bgg_ranking_year_missing
+
+#disclaimer: We used Chat GPT to help join the two data frames, to account for empty values in the column "year_published," while ensuring the values for games without empty values in the data frame "bgg_ranking_year" remained in place. We tested the code for the board game "Erune" and then went back to add in other missing years for the top 20 results. 
+
+https://chat.openai.com/share/621ec676-846d-4eea-8132-29b0eec3ad0e
+
+```{r}
+bgg_dataset_year_join <- left_join(bgg_ranking_year, bgg_ranking_year_missing, by = "name") %>%
+  mutate(year_published = if_else(year_published.x %in% c("", "0"), year_published.y, year_published.x)) %>%
+  select(-year_published.x, -year_published.y)
+
+#checking join by filtering the game Erune
+#bgg_dataset_year_join %>%
+#  filter(name == "Erune")
+
+bgg_dataset_year_join
+
+```
+
+#filter and find top game by time-period
+
+#pre year 0
+- before 0
+
+#pre 1900
+- 1000 to 1499
+- 1500 to 1599
+- 1600 to 1699
+- 1700 to 1799
+- 1800 to 1899
+
+#by decade 1900 onward
+- 1900 to 1909
+- 1910 to 1919
+- 1920 to 1929
+- 1930 to 1939
+- 1940 to 1949
+- 1950 to 1959
+- 1960 to 1969
+- 1970 to 1979
+- 1980 to 1989
+- 1990 to 1999
+- 2000 to 2009
+- 2010 to 2019
+- 2020 to 2022
+
+
+```{r}
+#arrange by year_published
+bgg_dataset_year_join |> 
+  arrange(year_published)
+```
+
+**games rated BC**
+
+```{r}
+games_bc <- bgg_dataset_year_join |> 
+  filter(year_published <= "0") |> 
+  arrange(desc(rating_average))
+
+games_bc
+  
+#highest rating = Go
+#lowest rating = Tic-Tac-Toe
+
+```
+
+**Games Rated before 1900**
+
+- 1000 to 1499
+#highest rating = Chu Shogi
+#lowest rating = Fox and Geese
+
+- 1500 to 1599
+#highest rating = Shogi
+#lowest rating = Bingo
+
+- 1600 to 1699 
+#highest rating = Cribbage
+#lowest rating = Solitaire
+
+- 1700 to 1799
+#highest rating = Mus
+#lowest rating = Roulette
+
+- 1800 to 1899
+#highest rating = Sheepshead
+#lowest rating = Bunco
+
+```{r}
+#plug dates into filter 
+
+games_pre1900 <- bgg_dataset_year_join |> 
+  filter(year_published >= "1700" & 
+         year_published <= "1799") |> 
+  #arrange(desc(rating_average))
+  arrange(rating_average)
+
+games_pre1900
+
+```
+**Games rated by decade 1900 onward**
+
+- 1900 to 1909
+#highest rating = 500
+#lowest rating = Touring
+
+- 1910 to 1919
+#highest rating = Button Soccer
+#lowest rating = Uncle Wiggily
+
+- 1920 to 1929
+#highest rating = Bridge
+#lowest rating = Cootie
+
+- 1930 to 1939
+#highest rating = American Mah Jongg
+#lowest rating = Slap Jack
+
+- 1940 to 1949
+#highest rating = Subbuteo
+#lowest rating = Candy Land
+
+- 1950 to 1959
+#highest rating = Eleusis
+#lowest rating = Curious George Match-a-Balloon Game
+
+- 1960 to 1969
+#highest rating = Strat-O-Matic Baseball
+#lowest rating = Kreskin's ESP
+
+- 1970 to 1979
+#highest rating = Sports Action Canadian Pro Football
+#lowest rating = The Ungame
+
+- 1980 to 1989
+#highest rating = Manassas
+#lowest rating = LCR
+
+- 1990 to 1999
+#highest rating = 1849: The Game of Sicilian Railways
+#lowest rating = Global Survival
+
+- 2000 to 2009
+#highest rating = Gladiatoris
+#lowest rating = Rock Paper Scissors Game
+
+- 2010 to 2019
+#highest rating = TerroriXico
+#lowest rating = Oneupmanship: Mine's Bigger
+
+- 2020 to 2022
+#highest rating = DEFCON 1
+#lowest rating = The Umbrella Academy Game
+
+
+```{r}
+#plug dates into filter 
+
+games_post1900 <- bgg_dataset_year_join |> 
+  filter(year_published >= "2020" & 
+         year_published <= "2023") |> 
+  #arrange(desc(rating_average))
+  arrange(rating_average)
+
+games_post1900
+
+```
